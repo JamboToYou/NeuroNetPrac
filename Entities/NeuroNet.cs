@@ -8,8 +8,10 @@ namespace NeuroNet.Entities
 		public double[][,] Weights { get; set; }
 		public Func<double, double> ActivationFunc { get; set; }
 
-		public NeuroNet(int[] neuronsCount)
+		public NeuroNet(int[] neuronsCount, Func<double, double> activationFunc)
 		{
+			ActivationFunc = activationFunc;
+
 			var rand = new Random();
 			Neurons = new double[neuronsCount.Length][];
 			Weights = new double[neuronsCount.Length][,];
@@ -30,9 +32,12 @@ namespace NeuroNet.Entities
 			}
 		}
 
-		public void InitInput(double[] inputs)
+		public void LoadInputs(double[] inputs)
 		{
+			if (inputs.Length != Neurons[0].Length)
+				throw new ArgumentException("Inputs array doesn't match");
 
+			Neurons[0] = inputs.Clone();
 		}
 	}
 }
