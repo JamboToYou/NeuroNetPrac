@@ -1,39 +1,152 @@
 using System;
+using System.Linq;
+using System.Collections.Generic;
 
 namespace NeuroNet.Entities
 {
-    public static class NeuroNetWorker
-    {
-        public static double[] Execute(this NeuroNet neuroNet, double[] snaps)
-        {
-            var neurons = neuroNet.Neurons;
-            var weights = neuroNet.Weights;
-            var result = new double[];
+	public static class NeuroNetWorker
+	{
+		public static double[] Execute(this NeuroNet neuroNet, double[] snap)
+		{
+			var neurons = neuroNet.Neurons;
+			var weights = neuroNet.Weights;
+			var result = new double[neurons[neurons.Length - 1].Length];
 
-            if (snaps[i].Length != neurons[0].Length)
-            {
-                throw new ArgumentException("[warn]: Wrong count of values in snap {0}");
-            }
+			if (snap.Length != neurons[0].Length)
+				throw new ArgumentException("[warn]: Wrong count of values in snap {0}");
 
-            neurons[0] = snaps;
+			neurons[0] = snap;
 
-            for (int i = 1; i < neurons.Length; i++)
-            {
-                for (int j = 0; j < neurons[i].Length; j++)
-                {
-                    neurons[i][j] = ExecuteOne(neurons[i - 1], weights[i][j], neuroNet.ActivationFunc);
-                }
-            }
-        }
+			for (int i = 1; i < neurons.Length; i++)
+				for (int j = 0; j < neurons[i].Length; j++)
+					neurons[i][j] = ExecuteOne(neurons[i - 1], weights[i][j], neuroNet.ActivationFunc);
 
-        private static double ExecuteOne(double[] prevLayer, double[] weights, Func<double, double> activationFunc)
-        {
-            var sum = 0;
+			return neurons[neurons.Length - 1];
+		}
 
-            for (int i = 0; i < prevLayer.Length; i++)
-                sum += prevLayer[i] * weights[i];
+		private static double ExecuteOne(double[] prevLayer, double[] weights, Func<double, double> activationFunc)
+		{
+			var sum = 0.0;
 
-            return activationFunc(sum);
-        }
-    }
+			for (int i = 0; i < prevLayer.Length; i++)
+				sum += prevLayer[i] * weights[i];
+
+			return activationFunc(sum);
+		}
+
+		public static void Study(this NeuroNet neuroNet, double[][] snaps, double[][] expected)
+		{
+			double[] output;
+			var comparer = new NeuroNetResultsComparer(neuroNet.StudyingSensetivity);
+			var neurons = neuroNet.Neurons;
+			var weights = neuroNet.Weights;
+
+			var deltas = new double[neurons.Length][];
+
+			for (int snapIdx = 0; snapIdx < snaps.Length; snapIdx++)
+			{
+				#region Executing snap
+
+				if (neurons[neurons.Length - 1].Length != expected[snapIdx].Length)
+				{
+					Console.WriteLine($"[warn]: The length of teaching output doesn`t match to length of neuroNet`s output in snap {snapIdx}");
+					continue;
+				}
+
+				try
+				{
+					output = neuroNet.Execute(snaps[snapIdx]);
+				}
+				catch (ArgumentException ex)
+				{
+					Console.WriteLine(ex.Message, snapIdx);
+					continue;
+				}
+
+				#endregion
+
+				if (!output.SequenceEqual(expected[snapIdx], comparer))
+				{
+					#region Last layer deltas
+
+					var lastLayerNeurons = neurons.Last();
+					deltas[deltas.Length - 1] = new double[neurons.Last().Length];
+					var lastLayerDeltas = deltas[deltas.Length - 1];
+
+					for (int r = 0; r < lastLayerDeltas.Length; r++)
+						lastLayerDeltas[r] = (expected[snapIdx][r] - output[r]) * neuroNet.ActivationFuncDerivative(lastLayerNeurons[r]);
+
+					#endregion
+
+					#region Correcting last layer weights
+
+					for (int neuronIdx = 0; neuronIdx < lastLayerNeurons.Length; neuronIdx++)
+					{
+						for (int prevLayerNeuronIdx = 0; prevLayerNeuronIdx < neurons[neurons.Length - 2].Length; prevLayerNeuronIdx++)
+						{
+							weights[neurons.Length - 1][neuronIdx][prevLayerNeuronIdx] +=
+								lastLayerDeltas[neuronIdx] *
+								neurons[neurons.Length - 2][prevLayerNeuronIdx] *
+								neuroNet.Speed;
+						}
+					}
+
+					#endregion
+
+					#region Other weights
+
+					for (int layerIdx = neurons.Length - 2; layerIdx > 0; layerIdx--)
+					{
+						#region Calculating deltas for current layer
+
+						deltas[layerIdx] = new double[neurons[layerIdx].Length];
+						for (int neuronIdx = 0; neuronIdx < neurons[layerIdx].Length; neuronIdx++)
+						{
+							for (int nextLayerNeuronIdx = 0; nextLayerNeuronIdx < neurons[layerIdx + 1].Length; nextLayerNeuronIdx++)
+							{
+								deltas[layerIdx][neuronIdx] +=
+									deltas
+										[layerIdx + 1]
+										[nextLayerNeuronIdx]
+										+
+									weights
+										[layerIdx + 1]
+										[nextLayerNeuronIdx]
+										[neuronIdx];
+							}
+							deltas[layerIdx][neuronIdx] *= neuroNet.ActivationFuncDerivative(neurons[layerIdx][neuronIdx]);
+						}
+
+						#endregion
+
+						#region Correcting weights for current layer
+
+						for (int neuronIdx = 0; neuronIdx < neurons[layerIdx].Length; neuronIdx++)
+						{
+							for (int prevLayerNeuronIdx = 0; prevLayerNeuronIdx < neurons[layerIdx - 1].Length; prevLayerNeuronIdx++)
+							{
+								weights[layerIdx][neuronIdx][prevLayerNeuronIdx] +=
+									deltas[layerIdx][neuronIdx] *
+									neurons[layerIdx - 1][prevLayerNeuronIdx] *
+									neuroNet.Speed;
+							}
+						}
+
+						#endregion
+					}
+
+					#endregion
+				}
+			}
+		}
+	}
+
+	public class NeuroNetResultsComparer : IEqualityComparer<double>
+	{
+		private readonly double _minDiff;
+
+		public NeuroNetResultsComparer(double minDiff) => _minDiff = minDiff;
+		public bool Equals(double x, double y) => Math.Abs(x - y) <= _minDiff;
+		public int GetHashCode(double obj) => obj.GetHashCode();
+	}
 }
