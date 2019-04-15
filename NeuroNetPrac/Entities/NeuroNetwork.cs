@@ -3,7 +3,7 @@ using System;
 namespace NeuroNet.Entities
 {
 	[Serializable]
-	public class NeuroNet
+	public class NeuroNetwork
 	{
 		public double[][] Neurons { get; }
 		public double[][][] Weights { get; }
@@ -13,7 +13,10 @@ namespace NeuroNet.Entities
 		public Func<double, double> ActivationFunc { get; }
 		public Func<double, double> ActivationFuncDerivative { get; }
 
-		public NeuroNet(
+		public event Action OnStudyingStart;
+		public event Action<double[][], double[][]> OnStudyingEnd;
+
+		public NeuroNetwork(
 			int[] neuronsCount,
 			Func<double, double> activationFunc = null,
 			Func<double, double> activationFuncDerivative = null,
@@ -42,5 +45,8 @@ namespace NeuroNet.Entities
 				}
 			}
 		}
+
+		public void LogOnStudyingStart() => OnStudyingStart();
+		public void LogOnStudyingEnd(double[][] errors, double[][] testErrors) => OnStudyingEnd(errors, testErrors);
 	}
 }
