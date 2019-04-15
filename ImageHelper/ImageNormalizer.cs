@@ -1,7 +1,7 @@
 using System;
 using System.Drawing;
 
-namespace ImageNormalizer
+namespace ImageHelper
 {
 	public static class ImageNormalizer
 	{
