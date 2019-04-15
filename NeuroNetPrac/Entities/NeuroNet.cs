@@ -2,6 +2,7 @@ using System;
 
 namespace NeuroNet.Entities
 {
+	[Serializable]
 	public class NeuroNet
 	{
 		public double[][] Neurons { get; }
