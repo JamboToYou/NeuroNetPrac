@@ -13,11 +13,11 @@ namespace DogsBreedRecognition.Entities
 {
 	public static class DogsBreedRecognitionNeuroNet
 	{
-		private static readonly int IMG_THUMB_WIDTH = 200;
-		private static readonly int IMG_THUMB_HEIGHT = 200;
+		private static readonly int IMG_THUMB_WIDTH = 70;
+		private static readonly int IMG_THUMB_HEIGHT = 70;
 		private static readonly int NN_INPUT_SIZE = IMG_THUMB_WIDTH * IMG_THUMB_HEIGHT;
 		private static readonly int NN_OUTPUT_SIZE = 120;
-		private static readonly int[] NN_SIZE = new int[] { NN_INPUT_SIZE, 300, 200, NN_OUTPUT_SIZE };
+		private static readonly int[] NN_SIZE = new int[] { NN_INPUT_SIZE, 200, NN_OUTPUT_SIZE };
 		private static readonly string TEACHING_DATA_PATH = Directory.GetCurrentDirectory() + @"\TeachingData\Images";
 		private static readonly string NORMALIZED_DATA_PATH = Directory.GetCurrentDirectory() + @"\TeachingData\NormalizedData";
 
@@ -40,7 +40,7 @@ namespace DogsBreedRecognition.Entities
 			_breedImagesPathsByName = new Dictionary<string, string[]>();
 			_breedIndexesByName = new Dictionary<string, int>();
 			_countOfImagesByBreed = 30;
-			_epochesCount = 50;
+			_epochesCount = 20;
 			_partOfcountForTests = 6;
 			_breedNames = new string[NN_OUTPUT_SIZE];
 			_normalizedSnapsFileName = NORMALIZED_DATA_PATH +
@@ -113,10 +113,14 @@ namespace DogsBreedRecognition.Entities
 		private static void SaveNeuroNetwork()
 		{
 			var fn = Directory.GetCurrentDirectory() + @"\NeuroNetworks\" + DateTimeOffset.Now.Ticks + ".dat";
+			var nn = new NeuroNetState
+			{
+				Weights = _neuroNet.Weights
+			};
 
 			using (var fs = new FileStream(fn, FileMode.OpenOrCreate))
 			{
-				_bf.Serialize(fs, _neuroNet);
+				_bf.Serialize(fs, nn);
 			}
 			Console.WriteLine($"Network saved at \n{fn}");
 		}
@@ -125,14 +129,17 @@ namespace DogsBreedRecognition.Entities
 		{
 			var path = Directory.GetCurrentDirectory() + @"\NeuroNetworks";
 			var fn = Directory.GetFiles(path).Last();
-			NeuroNetwork res = null;
+			NeuroNetState res = null;
 
 			using (var fs = new FileStream(fn, FileMode.Open))
 			{
-				res = (NeuroNetwork)_bf.Deserialize(fs);
+				res = (NeuroNetState)_bf.Deserialize(fs);
 			}
 
-			return res;
+			var neuroNet = new NeuroNetwork(NN_SIZE);
+			neuroNet.Weights = res.Weights;
+
+			return neuroNet;
 		}
 
 		private static (double[][], double[][]) GetNormalizedData()

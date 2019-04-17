@@ -6,7 +6,7 @@ namespace NeuroNet.Entities
 	public class NeuroNetwork
 	{
 		public double[][] Neurons { get; }
-		public double[][][] Weights { get; }
+		public double[][][] Weights { get; set; }
 		public double Speed { get; set; }
 		public double ActivationParam { get; set; }
 		public double StudyingSensetivity { get; set; }
