@@ -15,6 +15,8 @@ namespace NeuroNet.Entities
 
 		public event Action OnStudyingStart;
 		public event Action<double[][], double[][]> OnStudyingEnd;
+		public event Action<int> OnProcessingSnapStart;
+		public event Action<int> OnProcessingSnapEnd;
 
 		public NeuroNetwork(
 			int[] neuronsCount,
@@ -26,6 +28,7 @@ namespace NeuroNet.Entities
 			ActivationParam = activationParam;
 			ActivationFunc = activationFunc ?? (x => 1 / 1 + Math.Exp(-x * ActivationParam) );
 			ActivationFuncDerivative = activationFuncDerivative ?? (x => ActivationParam * x * (1 - x) );
+			StudyingSensetivity = 0.05;
 
 			var rand = new Random();
 			Neurons = new double[neuronsCount.Length][];
@@ -48,5 +51,7 @@ namespace NeuroNet.Entities
 
 		public void LogOnStudyingStart() => OnStudyingStart();
 		public void LogOnStudyingEnd(double[][] errors, double[][] testErrors) => OnStudyingEnd(errors, testErrors);
+		public void LogOnProcessingSnapStart(int snap) => OnProcessingSnapStart(snap);
+		public void LogOnProcessingSnapEnd(int snap) => OnProcessingSnapEnd(snap);
 	}
 }

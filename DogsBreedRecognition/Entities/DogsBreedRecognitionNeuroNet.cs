@@ -7,6 +7,7 @@ using System.Collections.Concurrent;
 using NeuroNet.Entities;
 using Common.Utils;
 using ImageHelper;
+using System.Runtime.Serialization.Formatters.Binary;
 
 namespace DogsBreedRecognition.Entities
 {
@@ -18,36 +19,66 @@ namespace DogsBreedRecognition.Entities
 		private static readonly int NN_OUTPUT_SIZE = 120;
 		private static readonly int[] NN_SIZE = new int[] { NN_INPUT_SIZE, 300, 200, NN_OUTPUT_SIZE };
 		private static readonly string TEACHING_DATA_PATH = Directory.GetCurrentDirectory() + @"\TeachingData\Images";
+		private static readonly string NORMALIZED_DATA_PATH = Directory.GetCurrentDirectory() + @"\TeachingData\NormalizedData";
 
+		private static int _currentEpoche { get; set; }
 		private static int _countOfImagesByBreed { get; }
 		private static int _epochesCount { get; }
 		private static int _partOfcountForTests { get; }
-		private static NeuroNetwork _neuroNet { get; }
-		private static Dictionary<string, string[]> _breedImagesPathsByNames { get; }
-		private static Dictionary<string, int> _breedIndexesByNames { get; }
+		private static NeuroNetwork _neuroNet { get; set; }
+		private static string[] _breedNames { get; }
+		private static Dictionary<string, string[]> _breedImagesPathsByName { get; }
+		private static Dictionary<string, int> _breedIndexesByName { get; }
+		private static BinaryFormatter _bf { get; set; }
+
+		private static string _normalizedSnapsFileName { get; }
 
 		// TODO: use config files to configure NN
 		static DogsBreedRecognitionNeuroNet()
 		{
 			_neuroNet = new NeuroNetwork(NN_SIZE);
-			_breedImagesPathsByNames = new Dictionary<string, string[]>();
-			_breedIndexesByNames = new Dictionary<string, int>();
+			_breedImagesPathsByName = new Dictionary<string, string[]>();
+			_breedIndexesByName = new Dictionary<string, int>();
 			_countOfImagesByBreed = 30;
 			_epochesCount = 50;
 			_partOfcountForTests = 6;
+			_breedNames = new string[NN_OUTPUT_SIZE];
+			_normalizedSnapsFileName = NORMALIZED_DATA_PATH +
+				$@"\{IMG_THUMB_WIDTH}x{IMG_THUMB_HEIGHT}-{NN_OUTPUT_SIZE}-{_countOfImagesByBreed}.dat";
+
+			_bf = new BinaryFormatter();
+
+			// TODO: add analytics
+			_neuroNet.OnStudyingStart += () => Console.WriteLine($"[running]: Starting the epoche {_currentEpoche}");
+			_neuroNet.OnStudyingEnd += (x, y) => Console.WriteLine($"[running]: End of the epoche {_currentEpoche}");
+			_neuroNet.OnProcessingSnapStart += (x) => Console.WriteLine($"[running]: Processing snap {x}");
+			_neuroNet.OnProcessingSnapEnd += (x) => Console.WriteLine($"[running]: Finnished processing snap {x}");
 
 			string name;
 			var breedImagesPaths = Directory.GetDirectories(TEACHING_DATA_PATH);
 
 			for (int pathIdx = 0; pathIdx < breedImagesPaths.Length; pathIdx++)
 			{
-				name = breedImagesPaths[pathIdx].Split('\\').Last()
-						.Split('-').Last()
+				name = string.Join('-', breedImagesPaths[pathIdx].Split('\\').Last().Split('-').Skip(1))
 						.Replace("_", " ").Capitalize();
 
-				_breedImagesPathsByNames.Add(name, Directory.GetFiles(breedImagesPaths[pathIdx]));
-				_breedIndexesByNames.Add(name, pathIdx);
+				_breedNames[pathIdx] = name;
+				_breedImagesPathsByName.Add(name, Directory.GetFiles(breedImagesPaths[pathIdx]));
+				_breedIndexesByName.Add(name, pathIdx);
 			}
+		}
+
+		public static string Execute(string filename)
+		{
+			_neuroNet = Load();
+			var snap = ImageNormalizer.GetNormalizedInput(
+				filename,
+				IMG_THUMB_WIDTH,
+				IMG_THUMB_HEIGHT
+			);
+
+			var result = _neuroNet.Execute(snap);
+			return GetBreedFromOutput(result);
 		}
 
 		public static void Study()
@@ -63,7 +94,7 @@ namespace DogsBreedRecognition.Entities
 			var testSnaps = snaps.TakeLast(testCount).ToArray();
 			var testExpected = expected.TakeLast(testCount).ToArray();
 
-			for (int ep = 0; ep < _epochesCount; ep++)
+			for (_currentEpoche = 0; _currentEpoche < _epochesCount; _currentEpoche++)
 			{
 				(eduSnaps, eduExpected) = Utils.Randomize(eduSnaps, eduExpected);
 				(testSnaps, testExpected) = Utils.Randomize(testSnaps, testExpected);
@@ -75,9 +106,56 @@ namespace DogsBreedRecognition.Entities
 					testExpected
 				);
 			}
+
+			SaveNeuroNetwork();
+		}
+
+		private static void SaveNeuroNetwork()
+		{
+			var fn = Directory.GetCurrentDirectory() + @"\NeuroNetworks\" + DateTimeOffset.Now.Ticks + ".dat";
+
+			using (var fs = new FileStream(fn, FileMode.OpenOrCreate))
+			{
+				_bf.Serialize(fs, _neuroNet);
+			}
+			Console.WriteLine($"Network saved at \n{fn}");
+		}
+
+		private static NeuroNetwork Load()
+		{
+			var path = Directory.GetCurrentDirectory() + @"\NeuroNetworks";
+			var fn = Directory.GetFiles(path).Last();
+			NeuroNetwork res = null;
+
+			using (var fs = new FileStream(fn, FileMode.Open))
+			{
+				res = (NeuroNetwork)_bf.Deserialize(fs);
+			}
+
+			return res;
 		}
 
 		private static (double[][], double[][]) GetNormalizedData()
+		{
+			double[][] snaps;
+			double[][] results;
+			if (Directory.GetFiles(NORMALIZED_DATA_PATH).Contains(_normalizedSnapsFileName))
+			{
+				using (var fs = new FileStream(_normalizedSnapsFileName, FileMode.Open))
+				{
+					(snaps, results) = ((double[][], double[][]))_bf.Deserialize(fs);
+				}
+
+				Console.WriteLine("[info]: Using saved normalized data");
+			}
+			else
+			{
+				(snaps, results) = Normalize();
+			}
+
+			return (snaps, results);
+		}
+		private static (double[][], double[][]) Normalize()
 		{
 			double[] result;
 			double[] snap;
@@ -85,14 +163,17 @@ namespace DogsBreedRecognition.Entities
 			var results = new List<double[]>();
 
 			// TODO: use parallel tasks
-			foreach ((var breedName, var breedImagePaths) in _breedImagesPathsByNames)
+			foreach ((var breedName, var breedImagePaths) in _breedImagesPathsByName)
 			{
 				foreach (var breedImagePath in breedImagePaths.Take(_countOfImagesByBreed))
 				{
+					//tmp
+					Console.WriteLine(breedImagePath);
+					//!tmp
 					result = new double[NN_OUTPUT_SIZE];
-					result[_breedIndexesByNames[breedName]] = 1;
+					result[_breedIndexesByName[breedName]] = 1;
 
-					snap = ImageNormalizer.GetNormalizedInputs(
+					snap = ImageNormalizer.GetNormalizedInput(
 						breedImagePath,
 						IMG_THUMB_WIDTH,
 						IMG_THUMB_HEIGHT
@@ -102,8 +183,31 @@ namespace DogsBreedRecognition.Entities
 					snaps.Add(snap);
 				}
 			}
+			var asnaps = snaps.ToArray();
+			var aresults = results.ToArray();
 
-			return (snaps.ToArray(), results.ToArray());
+			using (var fs = new FileStream(_normalizedSnapsFileName, FileMode.OpenOrCreate))
+			{
+				_bf.Serialize(fs, (asnaps, aresults));
+			}
+
+			return (asnaps, aresults);
+		}
+
+		private static string GetBreedFromOutput(double[] output)
+		{
+			var max = 0;
+			var maxVal = .0;
+			for (int i = 0; i < output.Length; i++)
+			{
+				if (output[i] > maxVal)
+				{
+					max = i;
+					maxVal = output[i];
+				}
+			}
+
+			return _breedNames[max];
 		}
 	}
 }

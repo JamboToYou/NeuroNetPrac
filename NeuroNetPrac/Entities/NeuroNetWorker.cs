@@ -59,6 +59,8 @@ namespace NeuroNet.Entities
 			// Teaching
 			for (int snapIdx = 0; snapIdx < snaps.Length; snapIdx++)
 			{
+				neuroNet.LogOnProcessingSnapStart(snapIdx);
+
 				#region Executing snap
 
 				if (outputLength != expected[snapIdx].Length)
@@ -154,6 +156,8 @@ namespace NeuroNet.Entities
 
 					#endregion
 				}
+
+				neuroNet.LogOnProcessingSnapEnd(snapIdx);
 			}
 
 			// Testing by test snaps

@@ -8,47 +8,32 @@ namespace Common.Utils
 	public static class Utils
 	{
 		private static readonly Random RND = new Random();
-		public static T[] Randomize<T>(T[] array)
+		private static int[] GetRandomizedRange(int count)
 		{
-			T tmp;
+			var result = new int[count];
+			for (int i = 0; i < count; result[i] = i++);
+			return result.OrderBy(x => RND.Next()).ToArray();
+		}
+		private static T[] Randomize<T>(T[] array, int[] indexes)
+		{
 			var result = new T[array.Length];
-			var vals = new List<T>(array);
 
 			for (int i = 0; i < result.Length; i++)
-			{
-				tmp = vals[RND.Next(vals.Count)];
-				result[i] = tmp;
-				vals.Remove(tmp);
-			}
+				result[i] = array[indexes[i]];
 
 			return result;
 		}
+		public static T[] Randomize<T>(T[] array)
+			=> Randomize(array, GetRandomizedRange(array.Length));
 		public static (T[], R[]) Randomize<T, R>(T[] arr1, R[] arr2)
 		{
-			int min = arr1.Length > arr2.Length ? arr2.Length : arr1.Length;
+			var min = arr1.Length > arr2.Length ? arr2.Length : arr1.Length;
+			var indexes = GetRandomizedRange(min);
+			arr1 = arr1.Take(min).ToArray();
+			arr2 = arr2.Take(min).ToArray();
 
-			T tmp1;
-			R tmp2;
-			int rnd;
-			var vals1 = new List<T>(arr1).Take(min).ToList();
-			var vals2 = new List<R>(arr2).Take(min).ToList();
-			var result1 = new T[min];
-			var result2 = new R[min];
-
-			for (int i = 0; i < min; i++)
-			{
-				rnd = RND.Next(vals1.Count);
-				tmp1 = vals1[rnd];
-				tmp2 = vals2[rnd];
-
-				result1[i] = tmp1;
-				result2[i] = tmp2;
-
-				vals1.Remove(tmp1);
-				vals2.Remove(tmp2);
-			}
-
-			return (result1, result2);
+			return (Randomize(arr1, indexes),
+					Randomize(arr2, indexes));
 		}
 		public static string Capitalize(this string row)
 			=> Regex.Replace(row.ToLower(), @"\b[a-z]", m => m.Value.ToUpper());
