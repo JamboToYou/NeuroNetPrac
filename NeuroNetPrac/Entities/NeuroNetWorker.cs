@@ -19,17 +19,19 @@ namespace NeuroNet.Entities
 
 			for (int i = 1; i < neurons.Length; i++)
 				for (int j = 0; j < neurons[i].Length; j++)
-					neurons[i][j] = ExecuteOne(neurons[i - 1], weights[i][j], neuroNet.ActivationFunc);
+					neurons[i][j] = ExecuteOne(i, neurons[i - 1], weights[i][j], neuroNet.ActivationFunc);
 
 			return neurons[neurons.Length - 1];
 		}
 
-		private static double ExecuteOne(double[] prevLayer, double[] weights, Func<double, double> activationFunc)
+		private static double ExecuteOne(int currLayer, double[] prevLayer, double[] weights, Func<double, double> activationFunc)
 		{
 			var sum = 0.0;
 
 			for (int i = 0; i < prevLayer.Length; i++)
 				sum += prevLayer[i] * weights[i];
+
+			sum = currLayer != 1 ? sum : sum * 0.002;
 
 			return activationFunc(sum);
 		}
@@ -72,6 +74,8 @@ namespace NeuroNet.Entities
 				try
 				{
 					output = neuroNet.Execute(snaps[snapIdx]);
+					// for (int i = 0; i < output.Length; Console.Write(output[i++] + " "));
+					// Console.WriteLine();
 				}
 				catch (ArgumentException ex)
 				{
@@ -157,7 +161,7 @@ namespace NeuroNet.Entities
 					#endregion
 				}
 
-				neuroNet.LogOnProcessingSnapEnd(snapIdx);
+				neuroNet.LogOnProcessingSnapEnd(snapIdx, errors[snapIdx]);
 			}
 
 			// Testing by test snaps

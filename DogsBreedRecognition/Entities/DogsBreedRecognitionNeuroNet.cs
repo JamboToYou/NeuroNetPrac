@@ -52,7 +52,7 @@ namespace DogsBreedRecognition.Entities
 			_neuroNet.OnStudyingStart += () => Console.WriteLine($"[running]: Starting the epoche {_currentEpoche}");
 			_neuroNet.OnStudyingEnd += (x, y) => Console.WriteLine($"[running]: End of the epoche {_currentEpoche}");
 			_neuroNet.OnProcessingSnapStart += (x) => Console.WriteLine($"[running]: Processing snap {x}");
-			_neuroNet.OnProcessingSnapEnd += (x) => Console.WriteLine($"[running]: Finnished processing snap {x}");
+			_neuroNet.OnProcessingSnapEnd += (x, errs) => Console.WriteLine($"[running]: Finnished processing snap {x}\n[info][err]: \tSnaps: {errs.Sum()/errs.Length}");
 
 			string name;
 			var breedImagesPaths = Directory.GetDirectories(TEACHING_DATA_PATH);
@@ -130,6 +130,8 @@ namespace DogsBreedRecognition.Entities
 			var path = Directory.GetCurrentDirectory() + @"\NeuroNetworks";
 			var fn = Directory.GetFiles(path).Last();
 			NeuroNetState res = null;
+
+			System.Console.WriteLine(fn);
 
 			using (var fs = new FileStream(fn, FileMode.Open))
 			{

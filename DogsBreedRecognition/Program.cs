@@ -10,7 +10,7 @@ namespace DogsBreedRecognition
 			if (args[0] == "-s")
 				DogsBreedRecognitionNeuroNet.Study();
 			else
-				DogsBreedRecognitionNeuroNet.Execute(args[0]);
+				Console.WriteLine(DogsBreedRecognitionNeuroNet.Execute(args[0]));
 		}
 	}
 }
