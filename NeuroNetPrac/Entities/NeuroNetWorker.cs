@@ -19,21 +19,19 @@ namespace NeuroNet.Entities
 
 			for (int i = 1; i < neurons.Length; i++)
 				for (int j = 0; j < neurons[i].Length; j++)
-					neurons[i][j] = ExecuteOne(i, neurons[i - 1], weights[i][j], neuroNet.ActivationFunc);
+					neurons[i][j] = ExecuteOne(neurons[i - 1], weights[i][j], neuroNet.ActivationFunc, neuroNet.ActivationParam);
 
 			return neurons[neurons.Length - 1];
 		}
 
-		private static double ExecuteOne(int currLayer, double[] prevLayer, double[] weights, Func<double, double> activationFunc)
+		private static double ExecuteOne(double[] prevLayer, double[] weights, Func<double, double, double> activationFunc, double activationParam)
 		{
 			var sum = 0.0;
 
 			for (int i = 0; i < prevLayer.Length; i++)
 				sum += prevLayer[i] * weights[i];
 
-			sum = currLayer != 1 ? sum : sum * 0.002;
-
-			return activationFunc(sum);
+			return activationFunc(sum / prevLayer.Length, activationParam);
 		}
 
 		public static void Study(
@@ -44,7 +42,8 @@ namespace NeuroNet.Entities
 			double[][] testExpected)
 		{
 			double[] output;
-			var comparer = new NeuroNetResultsComparer(neuroNet.StudyingSensetivity);
+			double[] testOutput;
+			var comparer = new NeuroNetResultsComparer(neuroNet.AllowableError);
 			var neurons = neuroNet.Neurons;
 			var weights = neuroNet.Weights;
 			var outputLength = neurons[neurons.Length - 1].Length;
@@ -74,8 +73,7 @@ namespace NeuroNet.Entities
 				try
 				{
 					output = neuroNet.Execute(snaps[snapIdx]);
-					// for (int i = 0; i < output.Length; Console.Write(output[i++] + " "));
-					// Console.WriteLine();
+					testOutput = neuroNet.Execute(testSnaps[snapIdx]);
 				}
 				catch (ArgumentException ex)
 				{
@@ -86,18 +84,20 @@ namespace NeuroNet.Entities
 				#endregion
 
 				// Saving error
-				for (int i = 0; i < outputLength; errors[snapIdx][i] = expected[snapIdx][i] - output[i++]) ;
+				for (int i = 0; i < outputLength;
+					errors[snapIdx][i] = Math.Pow(1 + expected[snapIdx][i] - output[i], 2),
+					testErrors[snapIdx][i] = Math.Pow(1 + testExpected[snapIdx][i] - testOutput[i++], 2)) ;
 
 				if (!output.SequenceEqual(expected[snapIdx], comparer))
 				{
 					#region Last layer deltas
 
-					var lastLayerNeurons = neurons.Last();
-					deltas[deltas.Length - 1] = new double[neurons.Last().Length];
+					var lastLayerNeurons = neurons[neurons.Length - 1];
+					deltas[deltas.Length - 1] = new double[outputLength];
 					var lastLayerDeltas = deltas[deltas.Length - 1];
 
 					for (int r = 0; r < lastLayerDeltas.Length; r++)
-						lastLayerDeltas[r] = (expected[snapIdx][r] - output[r]) * neuroNet.ActivationFuncDerivative(lastLayerNeurons[r]);
+						lastLayerDeltas[r] = (expected[snapIdx][r] - output[r]) * neuroNet.ActivationFuncDerivative(lastLayerNeurons[r], neuroNet.ActivationParam);
 
 					#endregion
 
@@ -131,13 +131,13 @@ namespace NeuroNet.Entities
 									deltas
 										[layerIdx + 1]
 										[nextLayerNeuronIdx]
-										+
+										*
 									weights
 										[layerIdx + 1]
 										[nextLayerNeuronIdx]
 										[neuronIdx];
 							}
-							deltas[layerIdx][neuronIdx] *= neuroNet.ActivationFuncDerivative(neurons[layerIdx][neuronIdx]);
+							deltas[layerIdx][neuronIdx] *= neuroNet.ActivationFuncDerivative(neurons[layerIdx][neuronIdx], neuroNet.ActivationParam);
 						}
 
 						#endregion
@@ -158,38 +158,52 @@ namespace NeuroNet.Entities
 						#endregion
 					}
 
+					//tmp
+					var mx = 0;
+					var mxv = 0.0;
+					for (int i = 0; i < lastLayerNeurons.Length; i++)
+					{
+						if (lastLayerNeurons[i] > mxv)
+						{
+							mxv = lastLayerNeurons[i];
+							mx = i;
+						}
+					}
+					Console.WriteLine($"[{mx}]: {mxv}");
+					//~tmp
+
 					#endregion
 				}
 
-				neuroNet.LogOnProcessingSnapEnd(snapIdx, errors[snapIdx]);
+				neuroNet.LogOnProcessingSnapEnd(snapIdx, errors[snapIdx], testErrors[snapIdx]);
 			}
 
 			// Testing by test snaps
-			for (int snapIdx = 0; snapIdx < testSnaps.Length; snapIdx++)
-			{
-				#region Executing
+			// for (int snapIdx = 0; snapIdx < testSnaps.Length; snapIdx++)
+			// {
+			// 	#region Executing
 
-				if (outputLength != testExpected[snapIdx].Length)
-				{
-					Console.WriteLine($"[warn]: The length of testing output doesn`t match to length of neuroNet`s output in test snap {snapIdx}");
-					continue;
-				}
+			// 	if (outputLength != testExpected[snapIdx].Length)
+			// 	{
+			// 		Console.WriteLine($"[warn]: The length of testing output doesn`t match to length of neuroNet`s output in test snap {snapIdx}");
+			// 		continue;
+			// 	}
 
-				try
-				{
-					output = neuroNet.Execute(snaps[snapIdx]);
-				}
-				catch (ArgumentException ex)
-				{
-					Console.WriteLine(ex.Message, snapIdx);
-					continue;
-				}
+			// 	try
+			// 	{
+			// 		output = neuroNet.Execute(snaps[snapIdx]);
+			// 	}
+			// 	catch (ArgumentException ex)
+			// 	{
+			// 		Console.WriteLine(ex.Message, snapIdx);
+			// 		continue;
+			// 	}
 
-				#endregion
+			// 	#endregion
 
-				// Saving test errors
-				for (int i = 0; i < outputLength; testErrors[snapIdx][i] = testExpected[snapIdx][i] - output[i++]) ;
-			}
+			// 	// Saving test errors
+			// 	for (int i = 0; i < outputLength; testErrors[snapIdx][i] = testExpected[snapIdx][i] - output[i++]) ;
+			// }
 
 			neuroNet.LogOnStudyingEnd(errors, testErrors);
 		}

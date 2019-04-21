@@ -9,26 +9,28 @@ namespace NeuroNet.Entities
 		public double[][][] Weights { get; set; }
 		public double Speed { get; set; }
 		public double ActivationParam { get; set; }
-		public double StudyingSensetivity { get; set; }
-		public Func<double, double> ActivationFunc { get; }
-		public Func<double, double> ActivationFuncDerivative { get; }
+		public double AllowableError { get; set; }
+		public Func<double, double, double> ActivationFunc { get; }
+		public Func<double, double, double> ActivationFuncDerivative { get; }
 
 		public event Action OnStudyingStart;
 		public event Action<double[][], double[][]> OnStudyingEnd;
 		public event Action<int> OnProcessingSnapStart;
-		public event Action<int, double[]> OnProcessingSnapEnd;
+		public event Action<int, double[], double[]> OnProcessingSnapEnd;
 
 		public NeuroNetwork(
 			int[] neuronsCount,
-			Func<double, double> activationFunc = null,
-			Func<double, double> activationFuncDerivative = null,
+			Func<double, double, double> activationFunc = null,
+			Func<double, double, double> activationFuncDerivative = null,
 			double activationParam = 1,
-			double speed = 1)
+			double speed = 1,
+			double allowableError = 0.05)
 		{
 			ActivationParam = activationParam;
-			ActivationFunc = activationFunc ?? (x => 1 / (1 + Math.Exp(-x * ActivationParam)) );
-			ActivationFuncDerivative = activationFuncDerivative ?? (x => ActivationParam * x * (1 - x) );
-			StudyingSensetivity = 0.05;
+			AllowableError = allowableError;
+			ActivationFunc = activationFunc ?? ((x, y) => 1 / (1 + Math.Exp(-x * y)) );
+			ActivationFuncDerivative = activationFuncDerivative ?? ((x, y) => y * x * (1 - x) );
+			Speed = speed;
 
 			var rand = new Random();
 			Neurons = new double[neuronsCount.Length][];
@@ -51,7 +53,13 @@ namespace NeuroNet.Entities
 
 		public void LogOnStudyingStart() => OnStudyingStart();
 		public void LogOnStudyingEnd(double[][] errors, double[][] testErrors) => OnStudyingEnd(errors, testErrors);
-		public void LogOnProcessingSnapStart(int snap) => OnProcessingSnapStart(snap);
-		public void LogOnProcessingSnapEnd(int snap, double[] errs) => OnProcessingSnapEnd(snap, errs);
+		public void LogOnProcessingSnapStart(int snap)
+		{
+			if (OnProcessingSnapStart != null)
+			{
+				OnProcessingSnapStart(snap);
+			}
+		}
+		public void LogOnProcessingSnapEnd(int snap, double[] errs, double[] testErrs) => OnProcessingSnapEnd(snap, errs, testErrs);
 	}
 }
