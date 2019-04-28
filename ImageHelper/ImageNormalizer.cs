@@ -38,7 +38,7 @@ namespace ImageHelper
 				{
 					var clr = img.GetPixel(w, h);
 					result[requiredHeight * h + w] = (double)(clr.R + clr.G + clr.B) / (3 * 255) ;
-					System.Console.Write(result[requiredHeight * h + w] + " ");
+					System.Console.Write((int)(result[requiredHeight * h + w] * 10) + " ");
 				}
 				System.Console.WriteLine();
 			}

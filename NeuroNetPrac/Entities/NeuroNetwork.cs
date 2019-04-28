@@ -6,6 +6,7 @@ namespace NeuroNet.Entities
 	public class NeuroNetwork
 	{
 		public double[][] Neurons { get; }
+		public int[] NeuronsCount { get; }
 		public double[][][] Weights { get; set; }
 		public double Speed { get; set; }
 		public double ActivationParam { get; set; }
@@ -26,6 +27,7 @@ namespace NeuroNet.Entities
 			double speed = 1,
 			double allowableError = 0.05)
 		{
+			NeuronsCount = neuronsCount;
 			ActivationParam = activationParam;
 			AllowableError = allowableError;
 			ActivationFunc = activationFunc ?? ((x, y) => 1 / (1 + Math.Exp(-x * y)) );
@@ -36,19 +38,35 @@ namespace NeuroNet.Entities
 			Neurons = new double[neuronsCount.Length][];
 			Weights = new double[neuronsCount.Length][][];
 
-			Neurons[0] = new double[neuronsCount[0]];
-			for (int layerIdx = 1; layerIdx < Neurons.Length; layerIdx++)
+			Neurons[0] = new double[neuronsCount[0] + 1];
+			Neurons[0][neuronsCount[0]] = 1;
+			for (int layerIdx = 1; layerIdx < Neurons.Length - 1; layerIdx++)
 			{
-				Neurons[layerIdx] = new double[neuronsCount[layerIdx]];
-				Weights[layerIdx] = new double[neuronsCount[layerIdx]][];
-				
-				for (int neuronIdx = 0; neuronIdx < neuronsCount[layerIdx]; neuronIdx++)
+				Neurons[layerIdx] = new double[neuronsCount[layerIdx] + 1];
+				Weights[layerIdx] = new double[neuronsCount[layerIdx] + 1][];
+
+				Neurons[layerIdx][neuronsCount[layerIdx]] = 1;
+
+				for (int neuronIdx = 0; neuronIdx < neuronsCount[layerIdx] + 1; neuronIdx++)
 				{
-					Weights[layerIdx][neuronIdx] = new double[neuronsCount[layerIdx - 1]];
-					for (int synapsIdx = 0; synapsIdx < neuronsCount[layerIdx - 1]; synapsIdx++)
+					Weights[layerIdx][neuronIdx] = new double[neuronsCount[layerIdx - 1] + 1];
+					for (int synapsIdx = 0; synapsIdx < neuronsCount[layerIdx - 1] + 1; synapsIdx++)
 						Weights[layerIdx][neuronIdx][synapsIdx] = rand.NextDouble();
 				}
 			}
+
+			Neurons[neuronsCount.Length - 1] = new double[neuronsCount[neuronsCount.Length - 1]];
+			Weights[neuronsCount.Length - 1] = new double[neuronsCount[neuronsCount.Length - 1]][];
+
+			for (int neuronIdx = 0; neuronIdx < Weights[neuronsCount.Length - 1].Length; neuronIdx++)
+			{
+				Weights[neuronsCount.Length - 1][neuronIdx] = new double[neuronsCount[neuronsCount.Length - 2] + 1];
+				for (int synapsIdx = 0; synapsIdx < neuronsCount[neuronsCount.Length - 2]; synapsIdx++)
+					Weights[neuronsCount.Length - 1][neuronIdx][synapsIdx] = rand.NextDouble();
+			}
+
+			for (int i = 0; i < Weights[1].Length; i++)
+				Weights[1][i][neuronsCount[0]] = -40;
 		}
 
 		public void LogOnStudyingStart() => OnStudyingStart();

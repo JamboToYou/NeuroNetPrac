@@ -15,11 +15,12 @@ namespace AlphabetsRecognition.Core
 		private static readonly int IMG_THUMB_WIDTH = 28;
 		private static readonly int IMG_THUMB_HEIGHT = 28;
 		private static readonly int NN_INPUT_SIZE = IMG_THUMB_WIDTH * IMG_THUMB_HEIGHT;
-		private static readonly int NN_OUTPUT_SIZE = 26;
-		private static readonly int[] NN_SIZE = new int[] { NN_INPUT_SIZE, 100, NN_OUTPUT_SIZE };
 		private static readonly string TEACHING_DATA_PATH = Directory.GetCurrentDirectory() + @"\TeachingData\handwritten_data_785.csv";
 		private static readonly string NORMALIZED_DATA_PATH = Directory.GetCurrentDirectory() + @"\TeachingData\NormalizedData";
 		private static readonly char[] ALPHABETS = new char[] { 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'G', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z' };
+		// private static readonly char[] ALPHABETS = new char[] { 'A' };
+		private static readonly int NN_OUTPUT_SIZE = ALPHABETS.Length;
+		private static readonly int[] NN_SIZE = new int[] { NN_INPUT_SIZE, 15, 5,  NN_OUTPUT_SIZE };
 
 		private static int _currentEpoche { get; set; }
 		private static int _epochesCount { get; }
@@ -29,14 +30,17 @@ namespace AlphabetsRecognition.Core
 		private static NeuroNetwork _neuroNet { get; set; }
 		private static BinaryFormatter _bf { get; set; }
 		private static string _normalizedSnapsFileName { get; }
+		private static Func<double, double, double> Th = (x, y) => (Math.Exp(2 * x * y) - 1) / (Math.Exp(2 * x * y) + 1);
+		private static Func<double, double, double> ThDrv = (x, y) => (1 + x * x);
 
 		// TODO: use config files to configure NN
 		static AlphabetsRecognitionNN()
 		{
-			_neuroNet = new NeuroNetwork(NN_SIZE, speed: .4);
+			// _neuroNet = new NeuroNetwork(NN_SIZE, Th, ThDrv, speed: .4);
+			_neuroNet = new NeuroNetwork(NN_SIZE, activationParam: 0.01);
 			_epochesCount = 150;
 			_partOfcountForTests = 2;
-			_countOfAlphabetsByType = 150;
+			_countOfAlphabetsByType = 201;
 			_normalizedSnapsFileName = NORMALIZED_DATA_PATH +
 				$@"\{IMG_THUMB_WIDTH}x{IMG_THUMB_HEIGHT}-{NN_OUTPUT_SIZE}.dat";
 
@@ -86,18 +90,18 @@ namespace AlphabetsRecognition.Core
 		{
 			var sb = new StringBuilder();
 			_neuroNet = Load();
-			// var snap = ImageNormalizer.GetNormalizedBWInput(
-			// 	filename,
-			// 	IMG_THUMB_WIDTH,
-			// 	IMG_THUMB_HEIGHT
-			// );
-			double[] snap;
+			var snap = ImageNormalizer.GetNormalizedBWInput(
+				filename,
+				IMG_THUMB_WIDTH,
+				IMG_THUMB_HEIGHT
+			);
+			// double[] snap;
 
-			using (var fs = new FileStream(TEACHING_DATA_PATH, FileMode.Open))
-			using (var sr = new StreamReader(fs))
-			{
-				snap = sr.ReadLine().Split(',').Skip(1).Select(x => double.Parse(x)).ToArray();
-			}
+			// using (var fs = new FileStream(TEACHING_DATA_PATH, FileMode.Open))
+			// using (var sr = new StreamReader(fs))
+			// {
+			// 	snap = sr.ReadLine().Split(',').Skip(1).Select(x => double.Parse(x)).ToArray();
+			// }
 
 			var result = _neuroNet.Execute(snap);
 			sb.AppendLine($"Result: {GetAlphabetFromOutput(result)}");
@@ -143,7 +147,7 @@ namespace AlphabetsRecognition.Core
 			for (_currentEpoche = 0; /*!_isStudied && */_currentEpoche < _epochesCount; _currentEpoche++)
 			{
 				(eduSnaps, eduExpected) = Utils.Randomize(eduSnaps, eduExpected);
-				(testSnaps, testExpected) = Utils.Randomize(testSnaps, testExpected);
+				 
 
 				_neuroNet.Study(
 					eduSnaps,
@@ -204,7 +208,7 @@ namespace AlphabetsRecognition.Core
 			{
 				result = new double[NN_OUTPUT_SIZE];
 				result[item[0]] = 1;
-				snaps.Add(item.Skip(1).Select(x => (double)x / 255).ToArray());
+				snaps.Add(item.Skip(1).Select(x => x / 255.0).ToArray());
 				results.Add(result);
 				//tmp
 				Console.WriteLine(item[0]);
@@ -234,18 +238,23 @@ namespace AlphabetsRecognition.Core
 			{
 				while (!sr.EndOfStream)
 				{
+					// TODO: optimize
 					pxs = sr.ReadLine().Split(',').Select(x => int.Parse(x)).ToArray();
 
-					if (pxs[0] == currType && currTypeCnt++ < _countOfAlphabetsByType)
+					if (currType < NN_OUTPUT_SIZE)
 					{
-						result.Add(pxs);
+						if (pxs[0] == currType && currTypeCnt++ < _countOfAlphabetsByType)
+						{
+							result.Add(pxs);
+						}
+						else if (pxs[0] != currType++ && currType < NN_INPUT_SIZE)
+						{
+							result.Add(pxs);
+							currTypeCnt = 1;
+						}
 					}
-					else if (pxs[0] != currType)
-					{
-						currType = pxs[0];
-						result.Add(pxs);
-						currTypeCnt = 1;
-					}
+					else
+						break;
 				}
 			}
 			return result.ToArray();

@@ -10,16 +10,24 @@ namespace NeuroNet.Entities
 		{
 			var neurons = neuroNet.Neurons;
 			var weights = neuroNet.Weights;
+			var neuronsCount = neuroNet.NeuronsCount;
 			var result = new double[neurons[neurons.Length - 1].Length];
 
-			if (snap.Length != neurons[0].Length)
+			if (snap.Length != neuronsCount[0])
 				throw new ArgumentException("[warn]: Wrong count of values in snap {0}");
 
-			neurons[0] = snap;
+			for (int i = 0; i < snap.Length; i++)
+			{
+				neurons[0][i] = snap[i];
+			}
+			neurons[0][snap.Length] = 1;
 
 			for (int i = 1; i < neurons.Length; i++)
-				for (int j = 0; j < neurons[i].Length; j++)
-					neurons[i][j] = ExecuteOne(neurons[i - 1], weights[i][j], neuroNet.ActivationFunc, neuroNet.ActivationParam);
+				for (int j = 0; j < neuronsCount[i]; j++)
+					neurons[i][j] = ExecuteOne(
+						neurons[i - 1], weights[i][j],
+						neuroNet.ActivationFunc,
+						neuroNet.ActivationParam);
 
 			return neurons[neurons.Length - 1];
 		}
@@ -31,7 +39,7 @@ namespace NeuroNet.Entities
 			for (int i = 0; i < prevLayer.Length; i++)
 				sum += prevLayer[i] * weights[i];
 
-			return activationFunc(sum / prevLayer.Length, activationParam);
+			return activationFunc(sum, activationParam);
 		}
 
 		public static void Study(
@@ -158,7 +166,7 @@ namespace NeuroNet.Entities
 						#endregion
 					}
 
-					//tmp
+					#region tmp
 					var mx = 0;
 					var mxv = 0.0;
 					for (int i = 0; i < lastLayerNeurons.Length; i++)
@@ -170,7 +178,7 @@ namespace NeuroNet.Entities
 						}
 					}
 					Console.WriteLine($"[{mx}]: {mxv}");
-					//~tmp
+					#endregion ~tmp
 
 					#endregion
 				}
