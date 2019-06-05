@@ -1,0 +1,2 @@
+1,15680000,Yakovlev,550,Germany,Male,21,4,0.25,2,1,1,25000,1
+RowNumber,CustomerId,Surname,CreditScore,Geography,Gender,Age,Tenure,Balance,NumOfProducts,HasCrCard,IsActiveMember,EstimatedSalary,Exited

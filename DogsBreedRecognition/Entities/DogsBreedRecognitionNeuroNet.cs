@@ -51,7 +51,7 @@ namespace DogsBreedRecognition.Entities
 			// TODO: add analytics
 			_neuroNet.OnStudyingStart += () => Console.WriteLine($"[running]: Starting the epoche {_currentEpoche}");
 			_neuroNet.OnStudyingEnd += (x, y) => Console.WriteLine($"[running]: End of the epoche {_currentEpoche}");
-			_neuroNet.OnProcessingSnapEnd += (x, errs) => Console.WriteLine($"[running]: Finnished processing snap {x}\n[info][err]: \tSnaps: {errs.Sum()/errs.Length}");
+			_neuroNet.OnProcessingSnapEnd += (x, errs, testErrs) => Console.WriteLine($"[running]: Finnished processing snap {x}\n[info][err]: \tSnaps: {errs.Sum()/errs.Length}");
 
 			string name;
 			var breedImagesPaths = Directory.GetDirectories(TEACHING_DATA_PATH);

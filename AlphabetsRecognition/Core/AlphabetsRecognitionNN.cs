@@ -18,7 +18,6 @@ namespace AlphabetsRecognition.Core
 		private static readonly string TEACHING_DATA_PATH = Directory.GetCurrentDirectory() + @"\TeachingData\handwritten_data_785.csv";
 		private static readonly string NORMALIZED_DATA_PATH = Directory.GetCurrentDirectory() + @"\TeachingData\NormalizedData";
 		private static readonly char[] ALPHABETS = new char[] { 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'G', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z' };
-		// private static readonly char[] ALPHABETS = new char[] { 'A' };
 		private static readonly int NN_OUTPUT_SIZE = ALPHABETS.Length;
 		private static readonly int[] NN_SIZE = new int[] { NN_INPUT_SIZE, 15, 5,  NN_OUTPUT_SIZE };
 
